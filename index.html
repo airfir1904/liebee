@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Für dich mein Liebe ❤️</title>
+    <!-- Tải Tailwind CSS để tạo giao diện đẹp và responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải Three.js cho hiệu ứng 3D trái tim -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Thiết lập font Inter cho toàn bộ trang */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3f3; /* Màu nền nhẹ nhàng */
+        }
+        /* Đảm bảo canvas Three.js chiếm hết kích thước container */
+        #heart-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Ban đầu ẩn đi */
+            z-index: 10;
+            background-color: #000000;
+        }
+        /* CSS cho biểu tượng ổ khóa */
+        .lock-icon {
+            font-size: 4rem;
+            color: #ef4444; /* Màu đỏ lãng mạn */
+            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+        }
+        /* Thêm hiệu ứng lắc nhẹ cho ổ khóa */
+        .shake {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-1px, -2px) rotate(-1deg); }
+            40% { transform: translate(-3px, 0px) rotate(1deg); }
+            60% { transform: translate(3px, 2px) rotate(0deg); }
+            80% { transform: translate(1px, -1px) rotate(-1deg); }
+            100% { transform: translate(-1px, 2px) rotate(1deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Container cho hiệu ứng 3D trái tim (Ban đầu ẩn) -->
+    <div id="heart-container"></div>
+
+    <!-- Màn hình khóa (Hiển thị ban đầu) -->
+    <div id="lock-screen" class="p-8 bg-white shadow-2xl rounded-2xl w-full max-w-sm md:max-w-md transition-opacity duration-1000 ease-in-out z-20">
+        <div class="text-center mb-6">
+            <!-- Biểu tượng ổ khóa (Sử dụng Emoji) -->
+            <div id="lock-visual" class="lock-icon mx-auto mb-4" role="img" aria-label="Ổ khóa">🔒</div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Mở khóa trái tim anh đi </h1>
+            <p class="text-sm text-gray-500">Nhập tên em để mở khóa trái tim anh nè </p>
+        </div>
+
+        <form id="lock-form" class="space-y-4">
+            <div>
+                <label for="full-name" class="block text-sm font-medium text-gray-700 mb-1">Họ và Tên </label>
+                <input type="text" id="full-name" placeholder="Ví dụ: Nguyễn Văn A" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-pink-500 focus:border-pink-500 transition duration-300 shadow-sm">
+            </div>
+            
+            <button type="submit"
+                    class="w-full bg-pink-600 text-white py-3 rounded-lg font-semibold hover:bg-pink-700 transition duration-300 shadow-lg transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-pink-500 focus:ring-opacity-50">
+                Mở Khóa
+            </button>
+        </form>
+        
+        <!-- Khu vực hiển thị thông báo lỗi -->
+        <div id="message-box" class="mt-4 text-center text-red-500 font-medium hidden">
+            <!-- Nội dung thông báo lỗi sẽ được thêm vào đây -->
+        </div>
+    </div>
+
+    <script>
+        // --- CÀI ĐẶT CỦA BẠN (QUAN TRỌNG) ---
+        // 1. CHỈNH SỬA TÊN BÍ MẬT
+        // Lưu ý: Chuỗi này sẽ được so sánh với tên nhập vào. Nên chuẩn hóa về chữ thường để tránh lỗi viết hoa/thường.
+        const SECRET_NAME = "Phan Nga "; 
+        const LOVER_NAME = "Meine Liebe"; // Tên hiển thị sau khi mở khóa
+        // --- KẾT THÚC CÀI ĐẶT ---
+
+
+        // Các phần tử DOM
+        const lockScreen = document.getElementById('lock-screen');
+        const heartContainer = document.getElementById('heart-container');
+        const lockForm = document.getElementById('lock-form');
+        const fullNameInput = document.getElementById('full-name');
+        const messageBox = document.getElementById('message-box');
+        const lockVisual = document.getElementById('lock-visual');
+
+        // Hàm chuẩn hóa chuỗi (loại bỏ khoảng trắng thừa và chuyển về chữ thường)
+        function normalizeString(str) {
+            return str.trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        // Xử lý sự kiện gửi form
+        lockForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            messageBox.classList.add('hidden');
+            lockVisual.classList.remove('shake'); // Dừng hiệu ứng lắc nếu có
+
+            const enteredName = normalizeString(fullNameInput.value);
+            const secret = normalizeString(SECRET_NAME);
+
+            if (enteredName === secret) {
+                // Tên đúng -> Mở khóa và hiển thị trái tim
+                unlockAndShowHeart();
+            } else {
+                // Tên sai -> Hiển thị thông báo lỗi và lắc ổ khóa
+                messageBox.textContent = "Sai tên rồi! Hãy nhập chính xác 'Họ và Tên' của em ";
+                messageBox.classList.remove('hidden');
+                lockVisual.classList.add('shake');
+                setTimeout(() => lockVisual.classList.remove('shake'), 2000); // Dừng lắc sau 2s
+            }
+        });
+
+        // --- CHUẨN BỊ THREE.JS VÀ HIỆU ỨNG TRÁI TIM ---
+
+        let scene, camera, renderer, particles, geometry, material;
+        let animationFrameId = null;
+
+        function unlockAndShowHeart() {
+            // 1. Ẩn màn hình khóa
+            lockScreen.style.opacity = '0';
+            setTimeout(() => {
+                lockScreen.classList.add('hidden');
+                // 2. Hiện container 3D
+                heartContainer.style.display = 'block';
+                // 3. Khởi tạo và bắt đầu hiệu ứng 3D
+                initThreeJS();
+                // Thay đổi tiêu đề và tin nhắn tỏ tình
+                document.title = `${LOVER_NAME}, Mein Herz gehört dir !!!❤️`;
+                const confessionMessage = document.createElement('div');
+                confessionMessage.className = 'absolute top-0 left-0 w-full h-full flex items-center justify-center text-center p-4 z-50 pointer-events-none';
+                confessionMessage.innerHTML = `
+                    <div class="bg-white/80 backdrop-blur-sm p-6 md:p-10 rounded-xl shadow-2xl animate-pulse">
+                        <p class="text-3xl md:text-5xl font-extrabold text-pink-600 mb-4">${LOVER_NAME}</p>
+                        <p class="text-lg md:text-2xl text-gray-800">Du hast mein Herz geöffnet . Vielen Dank mein Schatz! </p>
+                        <p class="text-base text-gray-500 mt-4"></p>
+                    </div>
+                `;
+                document.body.appendChild(confessionMessage);
+
+            }, 800);
+        }
+
+        // Hàm tạo hình trái tim 3D (dựa trên công thức toán học)
+        function getHeartPoint(t, size = 1) {
+            const x = size * 16 * Math.pow(Math.sin(t), 3);
+            const y = size * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            const z = 0; // Để đơn giản, ta tạo trái tim 2D và biến nó thành 3D bằng cách xoay và phân tán
+            return new THREE.Vector3(x, y, z);
+        }
+
+        function initThreeJS() {
+            // Cấu hình cơ bản
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            heartContainer.appendChild(renderer.domElement);
+            scene.background = new THREE.Color(0x000000); // Nền đen cho hiệu ứng hạt nổi bật
+
+            // Thiết lập vị trí camera
+            camera.position.z = 80;
+
+            // --- TẠO HỆ THỐNG HẠT TRÁI TIM ---
+            const particleCount = 20000;
+            geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            const color = new THREE.Color();
+            const heartSize = 4; // Kích thước tổng thể của trái tim
+
+            for (let i = 0; i < particleCount; i++) {
+                // Sử dụng công thức trái tim 2D, thêm biến thể Z ngẫu nhiên để tạo độ sâu 3D
+                const t = Math.random() * 2 * Math.PI; // góc
+                const heartPoint = getHeartPoint(t, heartSize);
+
+                // Thêm độ sâu (Z) ngẫu nhiên và biến dạng nhẹ
+                const radius = Math.random() * heartSize * 0.5; // Bán kính phân tán
+                const angle = Math.random() * 2 * Math.PI;
+                const depth = Math.random() * heartSize * 0.5 - heartSize * 0.25;
+
+                positions[i * 3 + 0] = heartPoint.x + radius * Math.cos(angle);
+                positions[i * 3 + 1] = heartPoint.y + radius * Math.sin(angle);
+                positions[i * 3 + 2] = heartPoint.z + depth;
+
+                // Tạo màu sắc (Hồng, đỏ, tím lãng mạn)
+                const hue = (Math.random() * 0.1) + 0.9; // Từ 0.9 đến 1.0 (màu đỏ -> hồng)
+                color.setHSL(hue % 1, 1.0, 0.5 + Math.random() * 0.3); // Tăng độ sáng ngẫu nhiên
+                colors[i * 3 + 0] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+
+                // Kích thước hạt
+                sizes[i] = Math.random() * 2 + 1;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1).setUsage(THREE.DynamicDrawUsage));
+
+            // Shader Material: Để các hạt có thể thay đổi kích thước và màu sắc theo thời gian
+            material = new THREE.PointsMaterial({
+                size: 1, // Kích thước cơ bản
+                vertexColors: true,
+                blending: THREE.AdditiveBlending, // Tạo hiệu ứng phát sáng
+                transparent: true,
+                opacity: 0.8,
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            // Bắt đầu vòng lặp animation
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+
+            // Xoay nhẹ trái tim
+            particles.rotation.y += 0.005;
+            particles.rotation.z += 0.002;
+
+            // Hiệu ứng "đập" nhẹ nhàng bằng cách thay đổi kích thước hạt
+            const time = Date.now() * 0.005;
+            const positions = geometry.attributes.position.array;
+            const sizes = geometry.attributes.size.array;
+            
+            // Lặp qua tất cả các hạt
+            for (let i = 0; i < positions.length / 3; i++) {
+                // Thay đổi vị trí y nhẹ nhàng (Hiệu ứng trôi)
+                positions[i * 3 + 1] += Math.sin(time + i) * 0.01; 
+
+                // Hiệu ứng "đập" (Pulsing size)
+                sizes[i] = (Math.sin(time * 0.5 + i * 0.1) + 1.5) * 1.5 + 1;
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.size.needsUpdate = true;
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+    </script>
+</body>
+</html>
